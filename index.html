@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8">
+  <title>大富翁 - 玩家頭像版</title>
+  <style>
+    body {
+      font-family: "Arial", sans-serif;
+      text-align: center;
+      background-color: #f9f9f9;
+    }
+    .board {
+      display: grid;
+      grid-template-columns: repeat(6, 80px);
+      gap: 5px;
+      margin: 20px auto;
+      width: fit-content;
+      display: none;
+    }
+    .cell {
+      width: 80px;
+      height: 80px;
+      background: #fff;
+      border: 1px solid #ccc;
+      position: relative;
+      padding: 5px;
+      font-size: 12px;
+    }
+    .player-avatar {
+      position: absolute;
+      bottom: 2px;
+      left: 2px;
+      width: 30px;
+      height: 30px;
+      border-radius: 50%;
+      border: 2px solid #555;
+      object-fit: cover;
+    }
+    .controls {
+      margin-top: 20px;
+      display: none;
+    }
+    #setup {
+      margin-top: 30px;
+    }
+    .player-input {
+      margin-bottom: 15px;
+    }
+    .player-input input {
+      margin: 3px;
+    }
+  </style>
+</head>
+<body>
+  <h1>🎲 大富翁 - 玩家頭像版</h1>
+
+  <div id="setup">
+    <h3>請輸入玩家名稱和頭像網址（至少2位）</h3>
+    <div id="playerInputs">
+      <div class="player-input">
+        <input type="text" placeholder="玩家 1 名稱" />
+        <input type="text" placeholder="頭像網址（可空白）" />
+      </div>
+      <div class="player-input">
+        <input type="text" placeholder="玩家 2 名稱" />
+        <input type="text" placeholder="頭像網址（可空白）" />
+      </div>
+    </div>
+    <button onclick="addPlayerInput()">➕ 新增玩家</button>
+    <button onclick="startGame()">開始遊戲</button>
+  </div>
+
+  <div id="board" class="board"></div>
+
+  <div class="controls">
+    <p id="status">目前輪到：玩家</p>
+    <button onclick="rollDice()">擲骰子</button>
+  </div>
+
+  <script>
+    const boardData = [
+      { name: "起點" }, { name: "森林" }, { name: "寶藏地" },
+      { name: "退後3步", event: "back", value: 3 }, { name: "商店" },
+      { name: "稅務所" }, { name: "神秘箱" }, { name: "前進2步", event: "forward", value: 2 },
+      { name: "陷阱", event: "back", value: 2 }, { name: "空地" }, { name: "溫泉" },
+      { name: "雷雨區" }, { name: "餐廳" }, { name: "抽卡" }, { name: "幸運格" },
+      { name: "退後3步", event: "back", value: 3 }, { name: "空地" }, { name: "未來城" },
+      { name: "機場" }, { name: "奇幻島" }, { name: "寶石山" }, { name: "黑市" },
+      { name: "監獄", event: "back", value: 2 }, { name: "商場" },
+      { name: "跳躍格", event: "forward", value: 4 }, { name: "空地" },
+      { name: "科技塔" }, { name: "退後3步", event: "back", value: 3 },
+      { name: "月球站" }, { name: "終點" }
+    ];
+
+    let players = [];
+    let currentPlayer = 0;
+
+    function addPlayerInput() {
+      const inputDiv = document.createElement("div");
+      inputDiv.className = "player-input";
+      inputDiv.innerHTML = `
+        <input type="text" placeholder="玩家 ${document.querySelectorAll('.player-input').length + 1} 名稱" />
+        <input type="text" placeholder="頭像網址（可空白）" />
+      `;
+      document.getElementById("playerInputs").appendChild(inputDiv);
+    }
+
+    function startGame() {
+      const inputs = document.querySelectorAll('#playerInputs .player-input');
+      players = [];
+
+      inputs.forEach(inputDiv => {
+        const [nameInput, avatarInput] = inputDiv.querySelectorAll('input');
+        const name = nameInput.value.trim();
+        const avatar = avatarInput.value.trim();
+        if (name) {
+          players.push({ name, position: 0, avatar });
+        }
+      });
+
+      if (players.length < 2) {
+        alert("至少需要兩位玩家！");
+        return;
+      }
+
+      document.getElementById("setup").style.display = "none";
+      document.getElementById("board").style.display = "grid";
+      document.querySelector(".controls").style.display = "block";
+      renderBoard();
+      document.getElementById("status").innerText = `目前輪到：${players[currentPlayer].name}`;
+    }
+
+    function renderBoard() {
+      const boardEl = document.getElementById("board");
+      boardEl.innerHTML = "";
+      boardData.forEach((cell, index) => {
+        const div = document.createElement("div");
+        div.className = "cell";
+        div.innerHTML = `<strong>${index}</strong><br>${cell.name}`;
+
+        players.forEach((p, pi) => {
+          if (p.position === index) {
+            const avatar = document.createElement("img");
+            avatar.src = p.avatar || "https://upload.wikimedia.org/wikipedia/commons/9/99/Sample_User_Icon.png";
+            avatar.alt = p.name;
+            avatar.title = p.name;
+            avatar.className = "player-avatar";
+            div.appendChild(avatar);
+          }
+        });
+
+        boardEl.appendChild(div);
+      });
+    }
+
+    function rollDice() {
+      const dice = Math.floor(Math.random() * 6) + 1;
+      let player = players[currentPlayer];
+      alert(`${player.name} 擲出 ${dice} 點！`);
+      player.position += dice;
+
+      if (player.position >= boardData.length) {
+        player.position = boardData.length - 1;
+        alert(`${player.name} 到達終點！🎉`);
+      }
+
+      const cell = boardData[player.position];
+      if (cell.event) {
+        if (cell.event === "back") {
+          player.position -= cell.value;
+          if (player.position < 0) player.position = 0;
+          alert(`${player.name} 觸發了「${cell.name}」，退後 ${cell.value} 步！`);
+        } else if (cell.event === "forward") {
+          player.position += cell.value;
+          if (player.position >= boardData.length) player.position = boardData.length - 1;
+          alert(`${player.name} 觸發了「${cell.name}」，前進 ${cell.value} 步！`);
+        }
+      }
+
+      renderBoard();
+      currentPlayer = (currentPlayer + 1) % players.length;
+      document.getElementById("status").innerText = `目前輪到：${players[currentPlayer].name}`;
+    }
+  </script>
+</body>
+</html>
+
