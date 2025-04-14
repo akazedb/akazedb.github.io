@@ -1,61 +1,103 @@
 <!DOCTYPE html>
 <html lang="zh-Hant">
 <head>
-  <meta charset="UTF-8">
-  <title>大富翁 - 玩家頭像版</title>
+  <meta charset="UTF-8" />
+  <title>大富翁遊戲</title>
   <style>
     body {
-      font-family: "Arial", sans-serif;
+      font-family: "Segoe UI", sans-serif;
+      background: #f5f5f5;
       text-align: center;
-      background-color: #f9f9f9;
+      padding: 20px;
     }
+
     .board {
       display: grid;
-      grid-template-columns: repeat(6, 80px);
-      gap: 5px;
-      margin: 20px auto;
+      grid-template-columns: repeat(11, 80px);
+      grid-template-rows: repeat(6, 80px);
       width: fit-content;
-      display: none;
+      margin: 20px auto;
     }
+
     .cell {
       width: 80px;
       height: 80px;
-      background: #fff;
       border: 1px solid #ccc;
-      position: relative;
+      box-sizing: border-box;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
       padding: 5px;
       font-size: 12px;
+      background: white;
+      position: relative;
     }
+
+    .avatars {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 2px;
+    }
+
     .player-avatar {
-      position: absolute;
-      bottom: 2px;
-      left: 2px;
-      width: 30px;
-      height: 30px;
+      width: 24px;
+      height: 24px;
       border-radius: 50%;
-      border: 2px solid #555;
       object-fit: cover;
     }
+
     .controls {
       margin-top: 20px;
       display: none;
     }
+
+    button {
+      margin: 5px;
+      padding: 10px 18px;
+      background: #3498db;
+      color: white;
+      border: none;
+      border-radius: 5px;
+      cursor: pointer;
+    }
+
     #setup {
       margin-top: 30px;
     }
-    .player-input {
-      margin-bottom: 15px;
-    }
-    .player-input input {
+
+    input, select {
       margin: 3px;
+      padding: 6px;
+      border-radius: 4px;
+      border: 1px solid #ccc;
+      width: 160px;
+    }
+
+    .grid-editor {
+      max-height: 300px;
+      overflow-y: auto;
+      margin-top: 10px;
+      border: 1px solid #ddd;
+      padding: 10px;
+      background: #fff;
+    }
+
+    .grid-editor div {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+    }
+
+    .grid-editor label {
+      width: 60px;
     }
   </style>
 </head>
 <body>
-  <h1>🎲 大富翁 - 玩家頭像版</h1>
+  <h1>🎲 大富翁遊戲</h1>
 
   <div id="setup">
-    <h3>請輸入玩家名稱和頭像網址（至少2位）</h3>
+    <h3>輸入玩家資訊（至少 2 位）</h3>
     <div id="playerInputs">
       <div class="player-input">
         <input type="text" placeholder="玩家 1 名稱" />
@@ -67,121 +109,146 @@
       </div>
     </div>
     <button onclick="addPlayerInput()">➕ 新增玩家</button>
-    <button onclick="startGame()">開始遊戲</button>
+
+    <h3>🛠 自訂格子內容</h3>
+    <div class="grid-editor" id="gridEditor">
+      <!-- 動態填入格子 -->
+    </div>
+
+    <button onclick="startGame()">🚀 開始遊戲</button>
   </div>
 
   <div id="board" class="board"></div>
 
   <div class="controls">
-    <p id="status">目前輪到：玩家</p>
-    <button onclick="rollDice()">擲骰子</button>
+    <p id="status">目前輪到：</p>
+    <button onclick="rollDice()">🎲 擲骰子</button>
   </div>
 
   <script>
-    const boardData = [
-      { name: "起點" }, { name: "森林" }, { name: "寶藏地" },
-      { name: "退後3步", event: "back", value: 3 }, { name: "商店" },
-      { name: "稅務所" }, { name: "神秘箱" }, { name: "前進2步", event: "forward", value: 2 },
-      { name: "陷阱", event: "back", value: 2 }, { name: "空地" }, { name: "溫泉" },
-      { name: "雷雨區" }, { name: "餐廳" }, { name: "抽卡" }, { name: "幸運格" },
-      { name: "退後3步", event: "back", value: 3 }, { name: "空地" }, { name: "未來城" },
-      { name: "機場" }, { name: "奇幻島" }, { name: "寶石山" }, { name: "黑市" },
-      { name: "監獄", event: "back", value: 2 }, { name: "商場" },
-      { name: "跳躍格", event: "forward", value: 4 }, { name: "空地" },
-      { name: "科技塔" }, { name: "退後3步", event: "back", value: 3 },
-      { name: "月球站" }, { name: "終點" }
-    ];
-
+    const boardSize = 44;
+    let boardData = Array.from({ length: boardSize }, (_, i) => ({ name: `格子 ${i}`, type: "default" }));
     let players = [];
     let currentPlayer = 0;
 
     function addPlayerInput() {
-      const inputDiv = document.createElement("div");
-      inputDiv.className = "player-input";
-      inputDiv.innerHTML = `
+      const div = document.createElement("div");
+      div.className = "player-input";
+      div.innerHTML = `
         <input type="text" placeholder="玩家 ${document.querySelectorAll('.player-input').length + 1} 名稱" />
         <input type="text" placeholder="頭像網址（可空白）" />
       `;
-      document.getElementById("playerInputs").appendChild(inputDiv);
+      document.getElementById("playerInputs").appendChild(div);
+    }
+
+    function initGridEditor() {
+      const editor = document.getElementById("gridEditor");
+      for (let i = 0; i < boardSize; i++) {
+        const row = document.createElement("div");
+        row.innerHTML = `
+          <label>格 ${i}：</label>
+          <input type="text" id="cell-name-${i}" value="格子 ${i}" />
+          <select id="cell-type-${i}">
+            <option value="default">普通</option>
+            <option value="chance">機會</option>
+            <option value="fate">命運</option>
+          </select>
+        `;
+        editor.appendChild(row);
+      }
+    }
+
+    function applyGridData() {
+      for (let i = 0; i < boardSize; i++) {
+        const name = document.getElementById(`cell-name-${i}`).value.trim();
+        const type = document.getElementById(`cell-type-${i}`).value;
+        boardData[i] = { name: name || `格子 ${i}`, type };
+      }
     }
 
     function startGame() {
-      const inputs = document.querySelectorAll('#playerInputs .player-input');
       players = [];
-
-      inputs.forEach(inputDiv => {
-        const [nameInput, avatarInput] = inputDiv.querySelectorAll('input');
-        const name = nameInput.value.trim();
-        const avatar = avatarInput.value.trim();
-        if (name) {
-          players.push({ name, position: 0, avatar });
+      document.querySelectorAll('.player-input').forEach(div => {
+        const [nameInput, avatarInput] = div.querySelectorAll("input");
+        if (nameInput.value.trim()) {
+          players.push({
+            name: nameInput.value.trim(),
+            avatar: avatarInput.value.trim(),
+            position: 0
+          });
         }
       });
 
       if (players.length < 2) {
-        alert("至少需要兩位玩家！");
+        alert("至少兩位玩家！");
         return;
       }
 
+      applyGridData();
       document.getElementById("setup").style.display = "none";
       document.getElementById("board").style.display = "grid";
       document.querySelector(".controls").style.display = "block";
       renderBoard();
-      document.getElementById("status").innerText = `目前輪到：${players[currentPlayer].name}`;
     }
 
     function renderBoard() {
-      const boardEl = document.getElementById("board");
-      boardEl.innerHTML = "";
-      boardData.forEach((cell, index) => {
-        const div = document.createElement("div");
-        div.className = "cell";
-        div.innerHTML = `<strong>${index}</strong><br>${cell.name}`;
+      const layout = Array(66).fill(null);
+      for (let i = 0; i <= 10; i++) layout[i] = i;
+      for (let i = 1; i <= 4; i++) layout[i * 11 + 10] = 10 + i;
+      for (let i = 10; i >= 0; i--) layout[55 + (10 - i)] = 14 + (11 - i);
+      for (let i = 4; i >= 1; i--) layout[i * 11] = 25 + (4 - i);
 
-        players.forEach((p, pi) => {
-          if (p.position === index) {
-            const avatar = document.createElement("img");
-            avatar.src = p.avatar || "https://upload.wikimedia.org/wikipedia/commons/9/99/Sample_User_Icon.png";
-            avatar.alt = p.name;
-            avatar.title = p.name;
-            avatar.className = "player-avatar";
-            div.appendChild(avatar);
-          }
-        });
+      const board = document.getElementById("board");
+      board.innerHTML = "";
 
-        boardEl.appendChild(div);
+      layout.forEach(index => {
+        const cellDiv = document.createElement("div");
+        cellDiv.className = "cell";
+
+        if (index != null && boardData[index]) {
+          const cell = boardData[index];
+          cellDiv.innerHTML = `<strong>${index}</strong><br>${cell.name}`;
+          const avatarBox = document.createElement("div");
+          avatarBox.className = "avatars";
+
+          players.forEach(p => {
+            if (p.position === index) {
+              const img = document.createElement("img");
+              img.src = p.avatar || "https://upload.wikimedia.org/wikipedia/commons/9/99/Sample_User_Icon.png";
+              img.className = "player-avatar";
+              img.title = p.name;
+              avatarBox.appendChild(img);
+            }
+          });
+
+          cellDiv.appendChild(avatarBox);
+        }
+
+        board.appendChild(cellDiv);
       });
+
+      document.getElementById("status").innerText = `目前輪到：${players[currentPlayer].name}`;
     }
 
     function rollDice() {
       const dice = Math.floor(Math.random() * 6) + 1;
-      let player = players[currentPlayer];
+      const player = players[currentPlayer];
       alert(`${player.name} 擲出 ${dice} 點！`);
       player.position += dice;
+      if (player.position >= boardSize) player.position = boardSize - 1;
 
-      if (player.position >= boardData.length) {
-        player.position = boardData.length - 1;
-        alert(`${player.name} 到達終點！🎉`);
-      }
-
-      const cell = boardData[player.position];
-      if (cell.event) {
-        if (cell.event === "back") {
-          player.position -= cell.value;
-          if (player.position < 0) player.position = 0;
-          alert(`${player.name} 觸發了「${cell.name}」，退後 ${cell.value} 步！`);
-        } else if (cell.event === "forward") {
-          player.position += cell.value;
-          if (player.position >= boardData.length) player.position = boardData.length - 1;
-          alert(`${player.name} 觸發了「${cell.name}」，前進 ${cell.value} 步！`);
-        }
-      }
+      // ❗移除機會與命運格效果，不觸發任何行動
+      // cell.type 保留用於顯示樣式或未來擴充
 
       renderBoard();
       currentPlayer = (currentPlayer + 1) % players.length;
-      document.getElementById("status").innerText = `目前輪到：${players[currentPlayer].name}`;
     }
+
+    // 初始化格子設定表單
+    initGridEditor();
   </script>
 </body>
 </html>
+
+
 
